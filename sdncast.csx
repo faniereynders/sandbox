@@ -1,0 +1,1 @@
+Console.WriteLine($"Marcel is vandaag {DateTime.Now.ToString()} de baas");
