@@ -1,0 +1,268 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "registryServer": {
+            "type": "string"
+        },
+        "registryUserName": {
+            "type": "string"
+        },
+        "registryPassword": {
+            "type": "string"
+        },
+        "Application.Name": {
+            "type": "string",
+            "defaultValue": "Containo-Orders",
+            "metadata": {
+                "description": "Name of the Service Fabric Application"
+            }
+        },
+        "Application.Description": {
+            "type": "string",
+            "defaultValue": "Application that is used to create orders",
+            "metadata": {
+                "description": "Description of the Service Fabric Application"
+            }
+        },
+        "Application.Environment": {
+            "type": "string",
+            "defaultValue": "Development",
+            "metadata": {
+                "description": "Environment in which the application is running"
+            }
+        },
+        "Application.Network.Name": {
+            "type": "string",
+            "defaultValue": "Containo-Networks-Public",
+            "metadata": {
+                "description": "Name of network to use in which your Service Fabric Application will be"
+            }
+        },
+        "Application.Queues.Name": {
+            "type": "string",
+            "defaultValue": "orders-service-fabric-mesh",
+            "metadata": {
+                "description": "Name of network the queue that will be used for creating orders"
+            }
+        },
+        "ServiceBus.ConnectionString": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Connection string to the Service Bus Namespace"
+            }
+        },
+        "TableStorage.ConnectionString": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Connection string to Azure Storage"
+            }
+        },
+        "Region": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Region in which the resources will be deployed"
+            }
+        }
+    },
+    "resources": [
+        {
+            "apiVersion": "2018-07-01-preview",
+            "name": "[parameters('Application.Network.Name')]",
+            "type": "Microsoft.ServiceFabricMesh/networks",
+            "location": "[parameters('Region')]",
+            "dependsOn": [],
+            "properties": {
+                "description": "Public network for Containo",
+                "addressPrefix": "10.1.0.0/27",
+                "ingressConfig": {
+                    "qosLevel": "bronze",
+                    "layer4": [
+                        {
+                            "publicPort": "1337",
+                            "applicationName": "[parameters('Application.Name')]",
+                            "serviceName": "Containo-Orders-API",
+                            "endpointName": "HTTP-Public-APIs-Orders"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "apiVersion": "2018-07-01-preview",
+            "name": "[parameters('Application.Name')]",
+            "type": "Microsoft.ServiceFabricMesh/applications",
+            "location": "[parameters('Region')]",
+            "properties": {
+                "description": "[parameters('Application.Description')]",
+                "services": [
+                    {
+                        "name": "Containo-Orders-API",
+                        "properties": {
+                            "description": "Containo Orders API",
+                            "osType": "linux",
+                            "codePackages": [
+                                {
+                                    "imageRegistryCredential": {
+                                        "server": "[parameters('registryServer')]",
+                                        "username": "[parameters('registryUserName')]",
+                                        "password": "[parameters('registryPassword')]"
+                                    },
+                                    "name": "Containo-Orders-API-Host",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.api:v1",
+                                    "endpoints": [
+                                        {
+                                            "name": "HTTP-Public-APIs-Orders",
+                                            "port": 80
+                                        }
+                                    ],
+                                    "environmentVariables": [
+                                        {
+                                            "name": "ASPNETCORE_ENVIRONMENT",
+                                            "value": "[parameters('Application.Environment')]"
+                                        },
+                                        {
+                                            "name": "ASPNETCORE_URLS",
+                                            "value": "http://+:80"
+                                        },
+                                        {
+                                            "name": "Orders_Queue_Name",
+                                            "value": "[parameters('Application.Queues.Name')]"
+                                        },
+                                        {
+                                            "name": "ServiceBus_ConnectionString",
+                                            "value": "[parameters('ServiceBus.ConnectionString')]"
+                                        },
+                                        {
+                                            "name": "TableStorage_ConnectionString",
+                                            "value": "[parameters('TableStorage.ConnectionString')]"
+                                        },
+                                        {
+                                            "name": "Redis_ConnectionString",
+                                            "value": "localhost:6379"
+                                        },
+                                        {
+                                            "name": "Services_Validation_Url",
+                                            "value": "http://localhost:81"
+                                        }
+                                    ],
+                                    "resources": {
+                                        "requests": {
+                                            "cpu": 1,
+                                            "memoryInGB": 1
+                                        }
+                                    }
+                                },
+                                {
+                                    "imageRegistryCredential": {
+                                        "server": "[parameters('registryServer')]",
+                                        "username": "[parameters('registryUserName')]",
+                                        "password": "[parameters('registryPassword')]"
+                                    },
+                                    "name": "Containo-Orders-Validator",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.validator:v1",
+                                    "endpoints": [],
+                                    "environmentVariables": [
+                                        {
+                                            "name": "ASPNETCORE_ENVIRONMENT",
+                                            "value": "[parameters('Application.Environment')]"
+                                        },
+                                        {
+                                            "name": "ASPNETCORE_URLS",
+                                            "value": "http://+:81"
+                                        }
+                                    ],
+                                    "resources": {
+                                        "requests": {
+                                            "cpu": 1,
+                                            "memoryInGB": 1
+                                        }
+                                    }
+                                }
+                            ],
+                            "replicaCount": 1,
+                            "networkRefs": [
+                                {
+                                    "name": "[resourceId('Microsoft.ServiceFabricMesh/networks', parameters('Application.Network.Name'))]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "Containo-Orders-Cache",
+                        "properties": {
+                            "description": "Redis cache for the orders service",
+                            "osType": "linux",
+                            "codePackages": [
+                                {
+                                    "name": "Redis",
+                                    "image": "redis:4.0.11",
+                                    "endpoints": [],
+                                    "environmentVariables": [],
+                                    "resources": {
+                                        "requests": {
+                                            "cpu": 1,
+                                            "memoryInGB": 1
+                                        }
+                                    }
+                                }
+                            ],
+                            "replicaCount": 1,
+                            "networkRefs": [
+                                {
+                                    "name": "[resourceId('Microsoft.ServiceFabricMesh/networks', parameters('Application.Network.Name'))]"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "Containo-Orders-QueueProcessor",
+                        "properties": {
+                            "description": "Queue processor that will handle the order messages",
+                            "osType": "linux",
+                            "codePackages": [
+                                {
+                                    "imageRegistryCredential": {
+                                        "server": "[parameters('registryServer')]",
+                                        "username": "[parameters('registryUserName')]",
+                                        "password": "[parameters('registryPassword')]"
+                                    },
+                                    "name": "Containo-Orders-QueueProcessor-Host",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.queueprocessor:v1",
+                                    "endpoints": [],
+                                    "environmentVariables": [
+                                        {
+                                            "name": "ASPNETCORE_ENVIRONMENT",
+                                            "value": "[parameters('Application.Environment')]"
+                                        },
+                                        {
+                                            "name": "Orders_Queue_Name",
+                                            "value": "[parameters('Application.Queues.Name')]"
+                                        },
+                                        {
+                                            "name": "ServiceBus_ConnectionString",
+                                            "value": "[parameters('ServiceBus.ConnectionString')]"
+                                        },
+                                        {
+                                            "name": "TableStorage_ConnectionString",
+                                            "value": "[parameters('TableStorage.ConnectionString')]"
+                                        }
+                                    ],
+                                    "resources": {
+                                        "requests": {
+                                            "cpu": 1,
+                                            "memoryInGB": 1
+                                        }
+                                    }
+                                }
+                            ],
+                            "replicaCount": 1,
+                            "networkRefs": []
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
