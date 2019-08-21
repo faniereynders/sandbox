@@ -110,7 +110,7 @@
                                         "password": "[parameters('registryPassword')]"
                                     },
                                     "name": "Containo-Orders-API-Host",
-                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.api:0.1.31",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.api:v1",
                                     "endpoints": [
                                         {
                                             "name": "HTTP-Public-APIs-Orders",
@@ -161,7 +161,7 @@
                                         "password": "[parameters('registryPassword')]"
                                     },
                                     "name": "Containo-Orders-Validator",
-                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.validator:0.1.31",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.validator:v1",
                                     "endpoints": [],
                                     "environmentVariables": [
                                         {
@@ -229,7 +229,7 @@
                                         "password": "[parameters('registryPassword')]"
                                     },
                                     "name": "Containo-Orders-QueueProcessor-Host",
-                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.queueprocessor:0.1.31",
+                                    "image": "faniesf.azurecr.io/tomkerkhove/containo.services.orders.queueprocessor:v1",
                                     "endpoints": [],
                                     "environmentVariables": [
                                         {
